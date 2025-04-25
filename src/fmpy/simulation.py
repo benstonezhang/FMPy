@@ -301,7 +301,7 @@ class Input(object):
             self.discrete.append(DiscreteVariableInfo(
                 vrs=(c_uint32 * len(vrs))(*vrs),
                 values=(value_type * sum(sizes))(),
-                table=np.asarray(np.stack(list(map(lambda n: signals[n], names))), dtype=value_type),
+                table=list(map(lambda n: signals[n].astype(value_type), names)),
                 setter=setter)
             )
 
@@ -399,11 +399,11 @@ class Input(object):
         i0 = np.searchsorted(t, time)
 
         if i0 == 0:
-            values = table[:, 0]  # hold first value
+            values = np.hstack([t[0] for t in table])  # hold first value
             return values, np.zeros_like(values)
 
         if i0 == len(t):
-            values = table[:, -1]  # hold last value
+            values = np.hstack([t[-1] for t in table])  # hold last value
             return values, np.zeros_like(values)
 
         if discrete:
@@ -414,35 +414,35 @@ class Input(object):
                 while i + 1 < t.size and (t[i + 1] < time or isclose(time, t[i + 1])):
                     i += 1
 
-            values = table[:, i]
+            values = np.hstack([t[i] for t in table])
 
             return values, np.zeros_like(values)
 
         # check for time event
         if isclose(time, t[i0]) and i0 < len(t) - 1 and isclose(t[i0], t[i0 + 1]):
 
-            der_v = np.zeros((table.shape[0],))
+            der_v = np.zeros((len(table.shape),))
 
             if after_event:
                 # take the value after the event
                 while i0 < len(t) - 1 and isclose(t[i0], t[i0 + 1]):
                     i0 += 1
                 if i0 < len(t) - 1:
-                    v0 = table[:, i0]
-                    v1 = table[:, i0 + 1]
+                    v0 = np.hstack([t[i0] for t in table])
+                    v1 = np.hstack([t[i0 + 1] for t in table])
                     t0 = t[i0]
                     t1 = t[i0 + 1]
                     if not discrete:
                         der_v = (v1 - v0) / (t1 - t0)
             else:
-                v0 = table[:, i0 - 1]
-                v1 = table[:, i0]
+                v0 = np.hstack([t[i0 - 1] for t in table])
+                v1 = np.hstack([t[i0] for t in table])
                 t0 = t[i0 - 1]
                 t1 = t[i0]
                 if not discrete:
                     der_v = (v1 - v0) / (t1 - t0)
 
-            values = table[:, i0]
+            values = np.hstack([t[i0] for t in table])
             return values, der_v
 
         i0 -= 1  # interpolate
@@ -454,8 +454,8 @@ class Input(object):
         w0 = (t1 - time) / (t1 - t0)
         w1 = 1 - w0
 
-        v0 = table[:, i0]
-        v1 = table[:, i1]
+        v0 = np.hstack([t[i0] for t in table])
+        v1 = np.hstack([t[i1] for t in table])
 
         # interpolate the input value
         v = w0 * v0 + w1 * v1
