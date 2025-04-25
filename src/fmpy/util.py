@@ -778,7 +778,7 @@ def compile_dll(model_description, sources_dir, compiler=None, target_platform=N
         else:
             compiler = 'gcc'
 
-    include_dir = os.path.join(os.path.dirname(__file__), 'c-code')
+    include_dirs = [os.path.join(os.path.dirname(__file__), 'c-code')]
 
     source_files = []
 
@@ -793,6 +793,8 @@ def compile_dll(model_description, sources_dir, compiler=None, target_platform=N
     source_file_set = build_configuration.sourceFileSets[0]
 
     source_files += source_file_set.sourceFiles
+
+    include_dirs += source_file_set.includeDirectories
 
     preprocessor_definitions = []
 
@@ -824,6 +826,8 @@ def compile_dll(model_description, sources_dir, compiler=None, target_platform=N
 
         definitions = ' '.join(f' /D{d}' for d in preprocessor_definitions)
 
+        includes = ' '.join(f'/I"{i}"' for i in include_dirs)
+
         if compiler_options is None:
             compiler_options = '/Oy /Ob1 /Oi /LD'
 
@@ -840,11 +844,13 @@ def compile_dll(model_description, sources_dir, compiler=None, target_platform=N
             _, installation_path = installation_paths[-1]
             command = rf'call "{installation_path}\VC\Auxiliary\Build\vcvarsall.bat" {toolset}'
 
-        command += f' && cl {compiler_options} /I. /I"{include_dir}" {definitions} /Fe{model_identifier} shlwapi.lib {sources}'
+        command += f' && cl {compiler_options} /I. {includes} {definitions} /Fe{model_identifier} shlwapi.lib {sources}'
 
     elif compiler == 'gcc':
 
         definitions = ' '.join(f' -D{d}' for d in preprocessor_definitions)
+
+        includes = ' '.join(f'-I"{i}"' for i in include_dirs)
 
         if target_platform in ['linux64', 'x86_64-linux']:
 
@@ -856,10 +862,13 @@ def compile_dll(model_description, sources_dir, compiler=None, target_platform=N
 
             if system == 'windows':
                 cc = 'wsl ' + cc
-                output = subprocess.check_output(f"wsl wslpath -a '{include_dir}'")
-                include_dir = output.decode('utf-8').strip()
+                includes = []
+                for i in include_dirs:
+                    output = subprocess.check_output(f"wsl wslpath -a '{i}'").decode('utf-8').strip()
+                    includes.append(f'-I"{output}"')
+                includes = ' '.join(includes)
 
-            command = f"{cc} -c {compiler_options} -I. -I'{include_dir}' {definitions} {sources}"
+            command = f"{cc} -c {compiler_options} -I. {includes} {definitions} {sources}"
             command += f' && {cc} -static-libgcc -shared -o{target} *.o -lm'
 
         else:
@@ -869,6 +878,8 @@ def compile_dll(model_description, sources_dir, compiler=None, target_platform=N
 
         definitions = ' '.join(f' -D{d}' for d in preprocessor_definitions)
 
+        includes = ' '.join(f'-I"{i}"' for i in include_dirs)
+
         if target_platform in ['darwin64', 'x86_64-darwin', 'aarch64-darwin']:
 
             target = f'{model_identifier}.dylib'
@@ -876,7 +887,7 @@ def compile_dll(model_description, sources_dir, compiler=None, target_platform=N
             if compiler_options is None:
                 compiler_options = '-arch x86_64 -arch arm64'
 
-            command = f'clang -c {compiler_options} -I. -I{include_dir} {definitions} {sources}'
+            command = f'clang -c {compiler_options} -I. {includes} {definitions} {sources}'
             command += f' && clang -shared -arch x86_64 -arch arm64 -o{target} *.o -lm'
 
         else:
