@@ -376,16 +376,8 @@ class Input(object):
 
         t = signals[signals.dtype.names[0]]
 
-        # continuous
-        i_event = np.where(np.diff(t) == 0)
-        t_event.update(t[i_event])
-
-        # discrete
-        for variable in model_description.modelVariables:
-            if variable.name in signals.dtype.names and variable.variability in ['discrete', 'tunable']:
-                y = signals[variable.name]
-                i_event = np.flatnonzero(np.diff(y))
-                t_event.update(t[i_event + 1])
+        for i in t:
+            t_event.add(i)
 
         return np.array(sorted(t_event))
 

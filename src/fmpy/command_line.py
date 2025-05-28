@@ -159,7 +159,7 @@ Python version:     {sys.version}
         else:
             start_values = {}
 
-        input = read_csv(args.input_file, structured=True) if args.input_file else None
+        input = read_csv(args.input_file) if args.input_file else None
 
         if args.fmi_logging:
             fmi_call_logger = lambda s: print('[FMI] ' + s)
